@@ -11,19 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, express or implied. See the License for the specific
 # language governing permissions and limitations under the License.
 
-import boto3
-import json
-import requests
-import constants
+import json, tv_controller_api
 from alexa.skills.smarthome import AlexaResponse
 
 def lambda_handler(request, context):
     # Dump the request for logging - check the CloudWatch logs
-    print('lambda_handler request  -----')
+    print('lambda_handler request')
     print(json.dumps(request))
 
     if context is not None:
-        print('lambda_handler context  -----')
+        print('lambda_handler context')
         print(context)
 
     # Validate we have an Alexa directive
@@ -90,18 +87,14 @@ def lambda_handler(request, context):
         correlation_token = request['directive']['header']['correlationToken']
         
         try:
-            response = requests.post('{}toggle-power'.format(constants.url), json={'powerState': power_state_value})
+            tv_controller_api.tv_toggle(power_state_value)
+        except Exception as error:
+            print(error)
             
-            if response.status_code == 200:
-                speech = response.text
-            else:
-                return AlexaResponse(
-                name='ErrorResponse',
-                payload={'type': 'INTERNAL_ERROR', 'message': 'There was an error with the endpoint.'}).get()
-        except:
             return AlexaResponse(
                 name='ErrorResponse',
-                payload={'type': 'ENDPOINT_UNREACHABLE', 'message': 'Unable to reach endpoint.'}).get()
+                payload={'type': 'ENDPOINT_UNREACHABLE', 'message': 'Unable to reach endpoint.'}
+            ).get()
                 
         apcr = AlexaResponse(correlation_token=correlation_token)
         apcr.add_context_property(namespace='Alexa.PowerController', name='powerState', value=power_state_value)
@@ -111,20 +104,19 @@ def lambda_handler(request, context):
         
         try:
             if name == 'AdjustVolume':
-                response = requests.post('{}adjust-volume'.format(constants.url), json={'volumeSteps': request['directive']['payload']['volumeSteps']})
-            else:
-                response = None
-            
-            if response and response.status_code == 200:
-                speech = response.text
+                response = tv_controller_api.tv_volume_step(request['directive']['payload']['volumeSteps'])
             else:
                 return AlexaResponse(
-                name='ErrorResponse',
-                payload={'type': 'INTERNAL_ERROR', 'message': 'There was an error with the endpoint.'}).get()
-        except:
+                    name='ErrorResponse',
+                    payload={'type': 'INTERNAL_ERROR','message': 'There was an error with the endpoint.'}
+                ).get()
+        except Exception as error:
+            print(error)
+            
             return AlexaResponse(
                 name='ErrorResponse',
-                payload={'type': 'ENDPOINT_UNREACHABLE', 'message': 'Unable to reach endpoint.'}).get()
+                payload={'type': 'ENDPOINT_UNREACHABLE', 'message': 'Unable to reach endpoint.'}
+            ).get()
         
         apcr = AlexaResponse(correlation_token=correlation_token)
         apcr.add_context_property(namespace='Alexa.StepSpeaker', name='volumeSteps', value=request['directive']['payload']['volumeSteps'])
@@ -134,20 +126,19 @@ def lambda_handler(request, context):
         
         try:
             if name == 'Play' or name == 'Pause' or name == 'Stop':
-                response = requests.post('{}play-pause-stop-chromecast-youtube'.format(constants.url), json={'action': name})
-            else:
-                response = None
-            
-            if response and response.status_code == 200:
-                speech = response.text
+                response = tv_controller_api.tv_playback_controller(name)
             else:
                 return AlexaResponse(
-                name='ErrorResponse',
-                payload={'type': 'INTERNAL_ERROR', 'message': 'There was an error with the endpoint.'}).get()
-        except:
+                    name='ErrorResponse',
+                    payload={'type': 'INTERNAL_ERROR','message': 'There was an error with the endpoint.'}
+                ).get()
+        except Exception as error:
+            print(error)
+            
             return AlexaResponse(
                 name='ErrorResponse',
-                payload={'type': 'ENDPOINT_UNREACHABLE', 'message': 'Unable to reach endpoint.'}).get()
+                payload={'type': 'ENDPOINT_UNREACHABLE', 'message': 'Unable to reach endpoint.'}
+            ).get()
         
         apcr = AlexaResponse(correlation_token=correlation_token)
         apcr.add_context_property(namespace='Alexa.PlaybackController', name='action', value=name)
@@ -156,6 +147,6 @@ def lambda_handler(request, context):
 
 def send_response(response):
     # TODO Validate the response
-    print('lambda_handler response -----')
+    print('lambda_handler response')
     print(json.dumps(response))
     return response
